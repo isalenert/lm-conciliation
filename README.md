@@ -124,7 +124,7 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ## 🙏 Agradecimentos
 
-- Orientador(a): DIOGO VINÍCIUS WINCK
+- Orientador: DIOGO VINÍCIUS WINCK
 - Instituição: Centro Universitário da Católica de Santa Catarina
 - Período: 2025
 
