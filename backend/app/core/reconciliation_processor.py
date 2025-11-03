@@ -16,12 +16,6 @@ class ReconciliationProcessor:
                  date_tolerance_days: int = 1,
                  value_tolerance: float = 0.01,
                  similarity_threshold: float = 0.8):
-        """
-        Args:
-            date_tolerance_days: Diferença máxima em dias (ex: ±1 dia)
-            value_tolerance: Diferença máxima em valor (ex: ±R$ 0,01)
-            similarity_threshold: % mínima de similaridade (0.8 = 80%)
-        """
         self.date_tolerance_days = date_tolerance_days
         self.value_tolerance = value_tolerance
         self.similarity_threshold = similarity_threshold
@@ -32,30 +26,33 @@ class ReconciliationProcessor:
                   config: Dict) -> Dict:
         """Executa a conciliação entre dois DataFrames"""
         
-        # Extrair nomes das colunas
         date_col = config.get('date_col', 'Data')
         value_col = config.get('value_col', 'Valor')
         desc_col = config.get('desc_col', 'Descricao')
         
-        # Validar se as colunas existem
         self._validate_columns(bank_df, internal_df, date_col, value_col, desc_col)
         
-        # Normalizar dados
         bank_norm = self._normalize_dataframe(bank_df.copy(), date_col, value_col)
         internal_norm = self._normalize_dataframe(internal_df.copy(), date_col, value_col)
         
-        # Executar o pareamento
         matches = []
         bank_remaining = bank_norm.copy()
         internal_remaining = internal_norm.copy()
+        bank_indices_to_remove = []
+        internal_indices_to_remove = []
         
-        # Iterar sobre transações do banco
-        for bank_idx, bank_row in bank_remaining.iterrows():
+        for bank_idx, bank_row in bank_norm.iterrows():
+            if bank_idx in bank_indices_to_remove:
+                continue
+                
             best_match = None
             best_score = 0
+            best_internal_idx = None
             
-            # Buscar melhor match no sistema interno
-            for internal_idx, internal_row in internal_remaining.iterrows():
+            for internal_idx, internal_row in internal_norm.iterrows():
+                if internal_idx in internal_indices_to_remove:
+                    continue
+                    
                 score = self._calculate_match_score(
                     bank_row, internal_row, 
                     date_col, value_col, desc_col
@@ -63,34 +60,43 @@ class ReconciliationProcessor:
                 
                 if score > best_score:
                     best_score = score
-                    best_match = (internal_idx, internal_row)
+                    best_match = internal_row
+                    best_internal_idx = internal_idx
             
-            # Se encontrou um match acima do threshold
-            if best_match and best_score >= self.similarity_threshold:
-                internal_idx, internal_row = best_match
-                
+            if best_match is not None and best_score >= self.similarity_threshold:
                 matches.append({
                     'bank_transaction': bank_row.to_dict(),
-                    'internal_transaction': internal_row.to_dict(),
+                    'internal_transaction': best_match.to_dict(),
                     'confidence': best_score
                 })
                 
-                # Remover das pendentes
-                bank_remaining = bank_remaining.drop(bank_idx)
-                internal_remaining = internal_remaining.drop(internal_idx)
+                bank_indices_to_remove.append(bank_idx)
+                internal_indices_to_remove.append(best_internal_idx)
         
-        # Montar resultado
+        bank_remaining = bank_norm.drop(bank_indices_to_remove)
+        internal_remaining = internal_norm.drop(internal_indices_to_remove)
+        
+        # CORREÇÃO: Calcular taxa de match corretamente
+        # Taxa de match = transações conciliadas / total de transações do banco
+        # (O banco é a fonte de verdade - queremos saber quantas do banco foram encontradas)
+        total_bank = len(bank_df)
+        total_internal = len(internal_df)
+        matched_count = len(matches)
+        
+        # Taxa baseada no arquivo do banco (referência)
+        match_rate = (matched_count / total_bank * 100) if total_bank > 0 else 0
+        
         return {
             'matched': matches,
             'bank_only': bank_remaining.to_dict('records'),
             'internal_only': internal_remaining.to_dict('records'),
             'summary': {
-                'total_bank_transactions': len(bank_df),
-                'total_internal_transactions': len(internal_df),
-                'matched_count': len(matches),
+                'total_bank_transactions': total_bank,
+                'total_internal_transactions': total_internal,
+                'matched_count': matched_count,
                 'bank_only_count': len(bank_remaining),
                 'internal_only_count': len(internal_remaining),
-                'match_rate': len(matches) / max(len(bank_df), 1) * 100
+                'match_rate': round(match_rate, 2)  # Arredondado para 2 casas
             }
         }
     
@@ -115,35 +121,31 @@ class ReconciliationProcessor:
         return df
     
     def _calculate_match_score(self, row1, row2, date_col, value_col, desc_col):
-        """
-        Calcula score de similaridade entre duas transações
+        """Calcula score de similaridade entre duas transações"""
         
-        MUDANÇA: Agora aceita valores dentro da tolerância e usa token_set_ratio
-        para melhor matching de descrições
-        """
-        
-        # 1. Validar data (com tolerância)
-        date_diff = abs((row1[date_col] - row2[date_col]).days)
-        if date_diff > self.date_tolerance_days:
+        try:
+            date_diff = abs((row1[date_col] - row2[date_col]).days)
+            if date_diff > self.date_tolerance_days:
+                return 0.0
+        except:
             return 0.0
         
-        # 2. Validar valor (com tolerância) - CORRIGIDO
-        value_diff = abs(row1[value_col] - row2[value_col])
-        if value_diff > self.value_tolerance:
+        try:
+            val1 = float(row1[value_col])
+            val2 = float(row2[value_col])
+            value_diff = abs(round(val1, 2) - round(val2, 2))
+            
+            if value_diff > self.value_tolerance + 0.001:
+                return 0.0
+        except:
             return 0.0
         
-        # 3. Calcular similaridade da descrição - MELHORADO
-        desc1 = str(row1[desc_col]).upper().strip()
-        desc2 = str(row2[desc_col]).upper().strip()
-        
-        # Usar token_set_ratio para melhor matching de descrições
-        # Isso ignora ordem das palavras e palavras extras
-        description_similarity = fuzz.token_set_ratio(desc1, desc2) / 100.0
-        
-        # Se data e valor batem (dentro da tolerância), considerar o match
-        # mesmo que a descrição não seja 100% similar
-        if date_diff <= self.date_tolerance_days and value_diff <= self.value_tolerance:
-            # Reduzir threshold efetivo quando data e valor batem
+        try:
+            desc1 = str(row1[desc_col]).upper().strip()
+            desc2 = str(row2[desc_col]).upper().strip()
+            
+            description_similarity = fuzz.token_set_ratio(desc1, desc2) / 100.0
+            
             return description_similarity
-        
-        return description_similarity
+        except:
+            return 0.0
