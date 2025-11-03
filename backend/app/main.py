@@ -6,10 +6,9 @@ Sistema de Conciliação Bancária - LM Conciliation
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import uvicorn
 
-# Importar rotas (vamos criar depois)
-from app.api.routes import upload, reconcile
+# Importar rotas
+from app.api.routes import upload, reconcile, auth
 
 # Criar aplicação
 app = FastAPI(
@@ -20,7 +19,7 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configurar CORS (permitir requisições do frontend)
+# Configurar CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -35,8 +34,9 @@ app.add_middleware(
 )
 
 # Incluir rotas
+app.include_router(auth.router, prefix="/api/auth", tags=["Autenticação"])
 app.include_router(upload.router, prefix="/api", tags=["Upload"])
-app.include_router(reconcile.router, prefix="/api", tags=["Reconciliation"])
+app.include_router(reconcile.router, prefix="/api", tags=["Conciliação"])
 
 
 # Endpoint raiz
@@ -76,9 +76,10 @@ async def global_exception_handler(request, exc):
 
 # Executar servidor (para desenvolvimento)
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True  # Auto-reload em desenvolvimento
+        reload=True
     )
