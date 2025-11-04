@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Importar rotas
-from app.api.routes import upload, reconcile, auth
+from app.api.routes import upload, reconcile, auth, history
 
 # Criar aplicação
 app = FastAPI(
@@ -37,6 +37,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Autenticação"])
 app.include_router(upload.router, prefix="/api", tags=["Upload"])
 app.include_router(reconcile.router, prefix="/api", tags=["Conciliação"])
+app.include_router(history.router, prefix="/api", tags=["Histórico"])
 
 
 # Endpoint raiz

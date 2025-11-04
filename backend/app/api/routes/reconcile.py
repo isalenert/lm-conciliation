@@ -2,14 +2,19 @@
 Rotas de conciliação
 """
 
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 import tempfile
 import os
 import pandas as pd
 
+from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.csv_processor import CSVProcessor
 from app.core.reconciliation_processor import ReconciliationProcessor
+from app.services.reconciliation_service import ReconciliationService
+from app.models.user import User
 from app.api.models.schemas import ReconciliationResponse, ErrorResponse
 
 router = APIRouter()
@@ -25,32 +30,18 @@ async def reconcile_files(
     id_col: str = Form(None),
     date_tolerance: int = Form(1),
     value_tolerance: float = Form(0.02),
-    similarity_threshold: float = Form(0.7)
+    similarity_threshold: float = Form(0.7),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
-    Executa conciliação entre dois arquivos
+    Executa conciliação entre dois arquivos e salva no banco
     
-    **Parâmetros:**
-    - bank_file: Arquivo do extrato bancário (CSV)
-    - internal_file: Arquivo do sistema interno (CSV)
-    - date_col: Nome da coluna de data
-    - value_col: Nome da coluna de valor
-    - desc_col: Nome da coluna de descrição
-    - id_col: Nome da coluna de ID (opcional)
-    - date_tolerance: Tolerância em dias (padrão: 1)
-    - value_tolerance: Tolerância em valor (padrão: 0.02)
-    - similarity_threshold: Threshold de similaridade (padrão: 0.7)
-    
-    **Retorna:**
-    - matched: Lista de transações pareadas
-    - bank_only: Transações apenas no banco
-    - internal_only: Transações apenas no sistema
-    - summary: Estatísticas da conciliação
+    Requer autenticação via token JWT
     """
     
     try:
-        print(f"🔍 Iniciando conciliação...")
-        print(f"📋 Configuração: date={date_col}, value={value_col}, desc={desc_col}")
+        print(f"🔍 Conciliação iniciada pelo usuário: {current_user.email}")
         
         # Processar arquivo do banco
         bank_content = await bank_file.read()
@@ -80,9 +71,9 @@ async def reconcile_files(
         
         # Verificar se DataFrames não estão vazios
         if bank_df_clean.empty:
-            raise ValueError("Arquivo do banco está vazio ou não contém dados válidos")
+            raise ValueError("Arquivo do banco está vazio")
         if internal_df_clean.empty:
-            raise ValueError("Arquivo do sistema interno está vazio ou não contém dados válidos")
+            raise ValueError("Arquivo do sistema interno está vazio")
         
         # Configurar processador de conciliação
         reconciliation_processor = ReconciliationProcessor(
@@ -107,10 +98,23 @@ async def reconcile_files(
             config
         )
         
-        print(f"🎯 Conciliação concluída!")
+        # Salvar no banco de dados
+        print(f"💾 Salvando conciliação no banco de dados...")
+        reconciliation = ReconciliationService.create_reconciliation(
+            db=db,
+            user_id=current_user.id,
+            bank_file_name=bank_file.filename,
+            internal_file_name=internal_file.filename,
+            results=results
+        )
+        
+        print(f"🎯 Conciliação salva com ID: {reconciliation.id}")
         print(f"✅ Matches: {results['summary']['matched_count']}")
         print(f"⚠️  Pendentes banco: {results['summary']['bank_only_count']}")
         print(f"⚠️  Pendentes sistema: {results['summary']['internal_only_count']}")
+        
+        # Adicionar ID da conciliação ao resultado
+        results['reconciliation_id'] = reconciliation.id
         
         return results
         

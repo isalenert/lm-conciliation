@@ -2,13 +2,32 @@
  * Dashboard - Página principal após login
  */
 
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Upload, History, Settings, BarChart3 } from 'lucide-react';
+import { getStatistics } from '../services/api';
+import { LogOut, Upload, History, Settings, BarChart3, Loader } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStatistics();
+  }, []);
+
+  const loadStatistics = async () => {
+    try {
+      const data = await getStatistics();
+      setStats(data);
+    } catch (err) {
+      console.error('Erro ao carregar estatísticas:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -84,7 +103,8 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate('/settings')}
-            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-left"
+            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-left opacity-75 cursor-not-allowed"
+            disabled
           >
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
               <Settings className="w-6 h-6 text-purple-600" />
@@ -93,7 +113,7 @@ export default function Dashboard() {
               Configurações
             </h3>
             <p className="text-sm text-gray-600">
-              Configure tolerâncias e preferências
+              Em breve: Configure tolerâncias
             </p>
           </button>
 
@@ -118,23 +138,46 @@ export default function Dashboard() {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">
             Estatísticas Rápidas
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-blue-600">0</p>
-              <p className="text-sm text-gray-600 mt-1">Conciliações Realizadas</p>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader className="w-8 h-8 text-blue-600 animate-spin" />
             </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-green-600">0%</p>
-              <p className="text-sm text-gray-600 mt-1">Taxa Média de Match</p>
+          ) : stats && stats.total_reconciliations > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-blue-600">{stats.total_reconciliations}</p>
+                <p className="text-sm text-gray-600 mt-1">Conciliações Realizadas</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-green-600">{stats.average_match_rate.toFixed(1)}%</p>
+                <p className="text-sm text-gray-600 mt-1">Taxa Média de Match</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-purple-600">{stats.total_transactions}</p>
+                <p className="text-sm text-gray-600 mt-1">Transações Processadas</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-purple-600">0</p>
-              <p className="text-sm text-gray-600 mt-1">Transações Processadas</p>
-            </div>
-          </div>
-          <p className="text-center text-gray-500 text-sm mt-6">
-            Faça sua primeira conciliação para ver suas estatísticas!
-          </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-blue-600">0</p>
+                  <p className="text-sm text-gray-600 mt-1">Conciliações Realizadas</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-green-600">0%</p>
+                  <p className="text-sm text-gray-600 mt-1">Taxa Média de Match</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-purple-600">0</p>
+                  <p className="text-sm text-gray-600 mt-1">Transações Processadas</p>
+                </div>
+              </div>
+              <p className="text-center text-gray-500 text-sm mt-6">
+                Faça sua primeira conciliação para ver suas estatísticas!
+              </p>
+            </>
+          )}
         </div>
 
         {/* Quick Start Guide */}

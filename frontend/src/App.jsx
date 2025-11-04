@@ -12,6 +12,8 @@ import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import Mapping from './pages/Mapping';
 import Results from './pages/Results';
+import History from './pages/History';
+import ReconciliationDetails from './pages/ReconciliationDetails';
 
 function App() {
   return (
@@ -53,6 +55,22 @@ function App() {
             element={
               <PrivateRoute>
                 <Results />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <PrivateRoute>
+                <History />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/history/:id"
+            element={
+              <PrivateRoute>
+                <ReconciliationDetails />
               </PrivateRoute>
             }
           />
