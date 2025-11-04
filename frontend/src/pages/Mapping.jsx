@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { uploadCSV, reconcileFiles } from '../services/api';
 import { ArrowRight, Settings, Loader } from 'lucide-react';
+import Navbar from '../components/Navbar';
 
 function MappingPage() {
   const location = useLocation();
@@ -33,7 +34,7 @@ function MappingPage() {
 
   useEffect(() => {
     if (!files || !files.bank || !files.internal) {
-      navigate('/');
+      navigate('/upload');
       return;
     }
     loadFiles();
@@ -44,7 +45,6 @@ function MappingPage() {
       setLoading(true);
       setError('');
 
-      // Upload dos arquivos para obter preview
       const [bankResponse, internalResponse] = await Promise.all([
         uploadCSV(files.bank),
         uploadCSV(files.internal),
@@ -53,7 +53,6 @@ function MappingPage() {
       setBankData(bankResponse);
       setInternalData(internalResponse);
 
-      // Auto-detectar colunas comuns
       const bankCols = bankResponse.columns;
       const internalCols = internalResponse.columns;
 
@@ -87,7 +86,6 @@ function MappingPage() {
         ...config,
       });
 
-      // Navegar para resultados
       navigate('/results', { state: { results: result } });
     } catch (err) {
       setError('Erro na conciliação: ' + err.message);
@@ -98,24 +96,18 @@ function MappingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader className="w-8 h-8 text-blue-600 animate-spin" />
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="flex items-center justify-center h-96">
+          <Loader className="w-8 h-8 text-blue-600 animate-spin" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Mapeamento de Colunas
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Configure as colunas e parâmetros da conciliação
-          </p>
-        </div>
-      </header>
+      <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {error && (
@@ -125,7 +117,6 @@ function MappingPage() {
         )}
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Mapeamento de Colunas */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center">
               <Settings className="w-5 h-5 mr-2" />
@@ -180,26 +171,9 @@ function MappingPage() {
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Coluna de ID (opcional)
-                </label>
-                <select
-                  value={mapping.id_col}
-                  onChange={(e) => setMapping({ ...mapping, id_col: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="">Nenhum</option>
-                  {bankData?.columns.map((col) => (
-                    <option key={col} value={col}>{col}</option>
-                  ))}
-                </select>
-              </div>
             </div>
           </div>
 
-          {/* Configurações Avançadas */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-4">
               Configurações Avançadas
@@ -218,9 +192,6 @@ function MappingPage() {
                   onChange={(e) => setConfig({ ...config, date_tolerance: parseInt(e.target.value) })}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Aceita diferenças de até {config.date_tolerance} dia(s)
-                </p>
               </div>
 
               <div>
@@ -236,9 +207,6 @@ function MappingPage() {
                   onChange={(e) => setConfig({ ...config, value_tolerance: parseFloat(e.target.value) })}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Aceita diferenças de até R$ {config.value_tolerance.toFixed(2)}
-                </p>
               </div>
 
               <div>
@@ -254,69 +222,11 @@ function MappingPage() {
                   onChange={(e) => setConfig({ ...config, similarity_threshold: parseFloat(e.target.value) })}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Descrições devem ter pelo menos {(config.similarity_threshold * 100).toFixed(0)}% de similaridade
-                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Preview dos Dados */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Preview dos Dados</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <h3 className="font-semibold text-gray-700 mb-2">Banco ({bankData?.row_count} linhas)</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {bankData?.columns.slice(0, 4).map((col) => (
-                        <th key={col} className="px-2 py-1 text-left">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bankData?.preview.slice(0, 3).map((row, idx) => (
-                      <tr key={idx} className="border-t">
-                        {bankData.columns.slice(0, 4).map((col) => (
-                          <td key={col} className="px-2 py-1">{row[col]}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-700 mb-2">Sistema ({internalData?.row_count} linhas)</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {internalData?.columns.slice(0, 4).map((col) => (
-                        <th key={col} className="px-2 py-1 text-left">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {internalData?.preview.slice(0, 3).map((row, idx) => (
-                      <tr key={idx} className="border-t">
-                        {internalData.columns.slice(0, 4).map((col) => (
-                          <td key={col} className="px-2 py-1">{row[col]}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Botão de Conciliar */}
         <button
           onClick={handleReconcile}
           disabled={processing || !mapping.date_col || !mapping.value_col || !mapping.desc_col}

@@ -4,7 +4,8 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Upload as UploadIcon, FileText, AlertCircle } from 'lucide-react';
+import Navbar from '../components/Navbar';
 
 function UploadPage() {
   const navigate = useNavigate();
@@ -18,7 +19,6 @@ function UploadPage() {
   });
   const [error, setError] = useState('');
 
-  // Handler de drag and drop
   const handleDrag = (e, fileType) => {
     e.preventDefault();
     e.stopPropagation();
@@ -42,7 +42,6 @@ function UploadPage() {
   const handleFileSelect = (file, fileType) => {
     setError('');
 
-    // Validar arquivo
     if (!file) return;
 
     const validExtensions = ['.csv', '.pdf'];
@@ -63,7 +62,6 @@ function UploadPage() {
 
   const handleContinue = () => {
     if (files.bank && files.internal) {
-      // Navegar para página de mapeamento
       navigate('/mapping', { state: { files } });
     } else {
       setError('Selecione os dois arquivos para continuar');
@@ -104,7 +102,7 @@ function UploadPage() {
             </>
           ) : (
             <>
-              <Upload className="w-12 h-12 text-gray-400 mb-2" />
+              <UploadIcon className="w-12 h-12 text-gray-400 mb-2" />
               <p className="font-semibold text-gray-700">{title}</p>
               <p className="text-sm text-gray-500 mt-1">{description}</p>
               <p className="text-xs text-gray-400 mt-2">CSV ou PDF • Máx. 5MB</p>
@@ -117,19 +115,8 @@ function UploadPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            LM Conciliation
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Sistema de Conciliação Bancária Automatizado
-          </p>
-        </div>
-      </header>
+      <Navbar />
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-md p-8">
           <h2 className="text-2xl font-semibold mb-2">Upload de Arquivos</h2>
@@ -137,7 +124,6 @@ function UploadPage() {
             Faça upload dos dois arquivos que deseja conciliar
           </p>
 
-          {/* Error Alert */}
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
               <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 mr-3" />
@@ -145,7 +131,6 @@ function UploadPage() {
             </div>
           )}
 
-          {/* Upload Zones */}
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             <FileUploadZone
               fileType="bank"
@@ -159,7 +144,6 @@ function UploadPage() {
             />
           </div>
 
-          {/* Continue Button */}
           <button
             onClick={handleContinue}
             disabled={!files.bank || !files.internal}
@@ -172,7 +156,6 @@ function UploadPage() {
             Continuar para Mapeamento
           </button>
 
-          {/* Instructions */}
           <div className="mt-8 p-4 bg-blue-50 rounded-lg">
             <h3 className="font-semibold text-blue-900 mb-2">📋 Instruções:</h3>
             <ol className="list-decimal list-inside text-sm text-blue-800 space-y-1">

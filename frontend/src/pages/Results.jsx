@@ -5,6 +5,9 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, AlertTriangle, ArrowLeft, Download } from 'lucide-react';
+import Navbar from '../components/Navbar';
+
+<Navbar />
 
 function ResultsPage() {
   const location = useLocation();
