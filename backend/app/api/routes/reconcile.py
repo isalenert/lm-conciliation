@@ -1,134 +1,123 @@
 """
 Rotas de conciliação
 """
-
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-import tempfile
+from pydantic import BaseModel
+from typing import Dict, List
 import os
-import pandas as pd
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.models.user import User
+from app.models.reconciliation import Reconciliation, ReconciliationMatch
 from app.core.csv_processor import CSVProcessor
 from app.core.reconciliation_processor import ReconciliationProcessor
-from app.services.reconciliation_service import ReconciliationService
-from app.models.user import User
-from app.api.models.schemas import ReconciliationResponse, ErrorResponse
 
 router = APIRouter()
 
+UPLOAD_DIR = "/tmp/lm-conciliation-uploads"
 
-@router.post("/reconcile", response_model=ReconciliationResponse)
-async def reconcile_files(
-    bank_file: UploadFile = File(..., description="Arquivo do banco"),
-    internal_file: UploadFile = File(..., description="Arquivo do sistema interno"),
-    date_col: str = Form("Data"),
-    value_col: str = Form("Valor"),
-    desc_col: str = Form("Descricao"),
-    id_col: str = Form(None),
-    date_tolerance: int = Form(1),
-    value_tolerance: float = Form(0.02),
-    similarity_threshold: float = Form(0.7),
+
+class ColumnMapping(BaseModel):
+    date_col: str
+    value_col: str
+    desc_col: str
+
+
+class ReconcileRequest(BaseModel):
+    bank_file: str
+    internal_file: str
+    bank_mapping: ColumnMapping
+    internal_mapping: ColumnMapping
+    date_tolerance: int = 1
+    value_tolerance: float = 0.02
+    similarity_threshold: float = 0.7
+
+
+@router.post("/reconcile")
+async def reconcile_transactions(
+    request: ReconcileRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Executa conciliação entre dois arquivos e salva no banco
-    
-    Requer autenticação via token JWT
+    Executa conciliação entre arquivos bancário e interno
     """
+    bank_path = os.path.join(UPLOAD_DIR, request.bank_file)
+    internal_path = os.path.join(UPLOAD_DIR, request.internal_file)
+    
+    if not os.path.exists(bank_path) or not os.path.exists(internal_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Arquivos não encontrados"
+        )
     
     try:
-        print(f"🔍 Conciliação iniciada pelo usuário: {current_user.email}")
+        # Processar arquivos
+        bank_df = CSVProcessor.read_csv(bank_path)
+        internal_df = CSVProcessor.read_csv(internal_path)
         
-        # Processar arquivo do banco
-        bank_content = await bank_file.read()
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_bank:
-            tmp_bank.write(bank_content)
-            tmp_bank_path = tmp_bank.name
-        
-        bank_processor = CSVProcessor()
-        bank_df = bank_processor.read_csv(tmp_bank_path)
-        bank_df_clean = bank_processor.standardize_data(bank_df)
-        print(f"✅ Banco: {len(bank_df_clean)} transações processadas")
-        
-        # Processar arquivo interno
-        internal_content = await internal_file.read()
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_internal:
-            tmp_internal.write(internal_content)
-            tmp_internal_path = tmp_internal.name
-        
-        internal_processor = CSVProcessor()
-        internal_df = internal_processor.read_csv(tmp_internal_path)
-        internal_df_clean = internal_processor.standardize_data(internal_df)
-        print(f"✅ Sistema: {len(internal_df_clean)} transações processadas")
-        
-        # Limpar arquivos temporários
-        os.unlink(tmp_bank_path)
-        os.unlink(tmp_internal_path)
-        
-        # Verificar se DataFrames não estão vazios
-        if bank_df_clean.empty:
-            raise ValueError("Arquivo do banco está vazio")
-        if internal_df_clean.empty:
-            raise ValueError("Arquivo do sistema interno está vazio")
-        
-        # Configurar processador de conciliação
-        reconciliation_processor = ReconciliationProcessor(
-            date_tolerance_days=date_tolerance,
-            value_tolerance=value_tolerance,
-            similarity_threshold=similarity_threshold
+        bank_data = CSVProcessor.process_dataframe(
+            bank_df,
+            request.bank_mapping.date_col,
+            request.bank_mapping.value_col,
+            request.bank_mapping.desc_col
         )
         
-        config = {
-            'date_col': date_col,
-            'value_col': value_col,
-            'desc_col': desc_col,
-            'id_col': id_col if id_col and id_col != 'null' else None
-        }
-        
-        print(f"🔧 Executando algoritmo de conciliação...")
+        internal_data = CSVProcessor.process_dataframe(
+            internal_df,
+            request.internal_mapping.date_col,
+            request.internal_mapping.value_col,
+            request.internal_mapping.desc_col
+        )
         
         # Executar conciliação
-        results = reconciliation_processor.reconcile(
-            bank_df_clean,
-            internal_df_clean,
-            config
+        processor = ReconciliationProcessor(
+            date_tolerance=request.date_tolerance,
+            value_tolerance=request.value_tolerance,
+            similarity_threshold=request.similarity_threshold
         )
         
-        # Salvar no banco de dados
-        print(f"💾 Salvando conciliação no banco de dados...")
-        reconciliation = ReconciliationService.create_reconciliation(
-            db=db,
+        results = processor.reconcile(bank_data, internal_data)
+        
+        # Salvar no banco
+        reconciliation = Reconciliation(
             user_id=current_user.id,
-            bank_file_name=bank_file.filename,
-            internal_file_name=internal_file.filename,
-            results=results
+            bank_file_name=request.bank_file,
+            internal_file_name=request.internal_file,
+            total_bank_transactions=results['summary']['total_bank_transactions'],
+            total_internal_transactions=results['summary']['total_internal_transactions'],
+            matched_count=results['summary']['matched_count'],
+            bank_only_count=results['summary']['bank_only_count'],
+            internal_only_count=results['summary']['internal_only_count'],
+            match_rate=results['summary']['match_rate']
         )
         
-        print(f"🎯 Conciliação salva com ID: {reconciliation.id}")
-        print(f"✅ Matches: {results['summary']['matched_count']}")
-        print(f"⚠️  Pendentes banco: {results['summary']['bank_only_count']}")
-        print(f"⚠️  Pendentes sistema: {results['summary']['internal_only_count']}")
+        db.add(reconciliation)
+        db.commit()
+        db.refresh(reconciliation)
         
-        # Adicionar ID da conciliação ao resultado
-        results['reconciliation_id'] = reconciliation.id
+        # Salvar matches
+        for match in results['matched']:
+            match_record = ReconciliationMatch(
+                reconciliation_id=reconciliation.id,
+                bank_transaction_data=match['bank_transaction'],
+                internal_transaction_data=match['internal_transaction'],
+                confidence=match['confidence'],
+                is_manual=False
+            )
+            db.add(match_record)
         
-        return results
+        db.commit()
         
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
+        return {
+            "reconciliation_id": reconciliation.id,
+            "results": results
+        }
+        
     except Exception as e:
-        print(f"❌ ERRO: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro na conciliação: {str(e)}"
         )

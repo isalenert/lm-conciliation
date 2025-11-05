@@ -1,42 +1,65 @@
-version: '3.8'
-
 services:
-  db:
+  postgres:
     image: postgres:15-alpine
+    container_name: lm-postgres-prod
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: lm_user
-      POSTGRES_PASSWORD: lm_pass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: lm_conciliation
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lm-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lm_user"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backend:
-    build: ./backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lm-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/lm_conciliation
+      SECRET_KEY: sua-chave-super-secreta-mude-em-producao
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://lm_user:lm_pass@db:5432/lm_conciliation
-      PYTHONUNBUFFERED: 1
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
+    networks:
+      - lm-network
+    command: >
+      sh -c "
+        echo '🚀 Iniciando Backend SEM migrations...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lm-frontend
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
       - backend
+    networks:
+      - lm-network
 
 volumes:
   postgres_data:
+    driver: local
+
+networks:
+  lm-network:
+    driver: bridge

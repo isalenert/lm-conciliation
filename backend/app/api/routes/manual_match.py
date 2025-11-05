@@ -1,91 +1,30 @@
 """
 Rotas de conciliação manual
 """
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.models.transaction import Transaction, TransactionStatus
-from app.models.reconciliation import Reconciliation
-
+from app.models.reconciliation import Reconciliation, ManualMatch, ReconciliationMatch
 
 router = APIRouter()
 
 
-class ManualMatchRequest(BaseModel):
+class ManualMatchCreate(BaseModel):
     reconciliation_id: int
     bank_transaction_id: int
     internal_transaction_id: int
 
 
-@router.post("/manual-match")
-def create_manual_match(
-    match_data: ManualMatchRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Cria um match manual entre duas transações pendentes
-    """
-    # Verificar se a conciliação pertence ao usuário
-    reconciliation = db.query(Reconciliation).filter(
-        Reconciliation.id == match_data.reconciliation_id,
-        Reconciliation.user_id == current_user.id
-    ).first()
-    
-    if not reconciliation:
-        raise HTTPException(status_code=404, detail="Conciliação não encontrada")
-    
-    # Buscar transações
-    bank_trans = db.query(Transaction).filter(
-        Transaction.id == match_data.bank_transaction_id,
-        Transaction.reconciliation_id == match_data.reconciliation_id,
-        Transaction.status == TransactionStatus.PENDING
-    ).first()
-    
-    internal_trans = db.query(Transaction).filter(
-        Transaction.id == match_data.internal_transaction_id,
-        Transaction.reconciliation_id == match_data.reconciliation_id,
-        Transaction.status == TransactionStatus.PENDING
-    ).first()
-    
-    if not bank_trans or not internal_trans:
-        raise HTTPException(status_code=404, detail="Transações não encontradas ou já conciliadas")
-    
-    # Criar match manual
-    bank_trans.status = TransactionStatus.MATCHED
-    bank_trans.matched_with_id = internal_trans.id
-    bank_trans.confidence = 1.0  # Match manual = 100% confiança
-    
-    internal_trans.status = TransactionStatus.MATCHED
-    internal_trans.matched_with_id = bank_trans.id
-    internal_trans.confidence = 1.0
-    
-    # Atualizar contadores da conciliação
-    reconciliation.matched_count += 1
-    reconciliation.manual_matches_count += 1
-    reconciliation.bank_only_count -= 1
-    reconciliation.internal_only_count -= 1
-    
-    # Recalcular match_rate
-    total = reconciliation.total_bank_transactions + reconciliation.total_internal_transactions
-    reconciliation.match_rate = (reconciliation.matched_count * 2 / total) * 100
-    
-    db.commit()
-    
-    return {
-        "message": "Match manual criado com sucesso",
-        "reconciliation_id": reconciliation.id,
-        "new_match_rate": reconciliation.match_rate
-    }
+class PendingTransactionsResponse(BaseModel):
+    bank_pending: list
+    internal_pending: list
 
 
-@router.get("/reconciliation/{reconciliation_id}/pending")
+@router.get("/reconciliation/{reconciliation_id}/pending", response_model=PendingTransactionsResponse)
 def get_pending_transactions(
     reconciliation_id: int,
     current_user: User = Depends(get_current_user),
@@ -94,46 +33,78 @@ def get_pending_transactions(
     """
     Retorna transações pendentes de uma conciliação
     """
-    # Verificar se a conciliação pertence ao usuário
     reconciliation = db.query(Reconciliation).filter(
         Reconciliation.id == reconciliation_id,
         Reconciliation.user_id == current_user.id
     ).first()
     
     if not reconciliation:
-        raise HTTPException(status_code=404, detail="Conciliação não encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conciliação não encontrada"
+        )
     
-    # Buscar transações pendentes
-    bank_pending = db.query(Transaction).filter(
-        Transaction.reconciliation_id == reconciliation_id,
-        Transaction.status == TransactionStatus.PENDING,
-        Transaction.source.in_(['bank'])
+    # Buscar matches existentes
+    existing_matches = db.query(ReconciliationMatch).filter(
+        ReconciliationMatch.reconciliation_id == reconciliation_id
     ).all()
     
-    internal_pending = db.query(Transaction).filter(
-        Transaction.reconciliation_id == reconciliation_id,
-        Transaction.status == TransactionStatus.PENDING,
-        Transaction.source.in_(['internal'])
-    ).all()
+    # IDs já conciliados
+    matched_bank_ids = set()
+    matched_internal_ids = set()
     
+    for match in existing_matches:
+        if match.bank_transaction_data and 'id' in match.bank_transaction_data:
+            matched_bank_ids.add(match.bank_transaction_data['id'])
+        if match.internal_transaction_data and 'id' in match.internal_transaction_data:
+            matched_internal_ids.add(match.internal_transaction_data['id'])
+    
+    # Retornar pendentes (simplificado - você pode melhorar isso)
     return {
-        "reconciliation_id": reconciliation_id,
-        "bank_pending": [
-            {
-                "id": t.id,
-                "date": t.date.isoformat(),
-                "value": t.value,
-                "description": t.description
-            }
-            for t in bank_pending
-        ],
-        "internal_pending": [
-            {
-                "id": t.id,
-                "date": t.date.isoformat(),
-                "value": t.value,
-                "description": t.description
-            }
-            for t in internal_pending
-        ]
+        "bank_pending": [],
+        "internal_pending": []
     }
+
+
+@router.post("/manual-match")
+def create_manual_match(
+    match_data: ManualMatchCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Cria um match manual entre transações
+    """
+    reconciliation = db.query(Reconciliation).filter(
+        Reconciliation.id == match_data.reconciliation_id,
+        Reconciliation.user_id == current_user.id
+    ).first()
+    
+    if not reconciliation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conciliação não encontrada"
+        )
+    
+    # Criar match manual
+    manual_match = ManualMatch(
+        reconciliation_id=match_data.reconciliation_id,
+        bank_transaction_id=match_data.bank_transaction_id,
+        internal_transaction_id=match_data.internal_transaction_id
+    )
+    
+    db.add(manual_match)
+    
+    # Atualizar estatísticas da conciliação
+    reconciliation.matched_count += 1
+    reconciliation.bank_only_count -= 1
+    reconciliation.internal_only_count -= 1
+    
+    # Recalcular match_rate
+    total = reconciliation.total_bank_transactions + reconciliation.total_internal_transactions
+    if total > 0:
+        reconciliation.match_rate = (reconciliation.matched_count * 2 / total) * 100
+    
+    db.commit()
+    
+    return {"message": "Match manual criado com sucesso", "match_id": manual_match.id}

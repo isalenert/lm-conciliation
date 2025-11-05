@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Importar rotas
-from app.api.routes import upload, reconcile, auth, history, settings, manual_match, password_reset
+from app.api.routes import upload, process, reconcile, auth, history, settings, manual_match, password_reset
 
 # Criar aplicação
 app = FastAPI(
@@ -19,19 +19,10 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configurar CORS - MAIS PERMISSIVO
+# CORS - PERMITIR TODAS AS ORIGENS (DESENVOLVIMENTO)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:8080",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:8080",
-    ],
+    allow_origins=["*"],  # Em produção, especificar domínios
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -91,3 +82,4 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
+app.include_router(process.router, prefix="/api", tags=["Processamento"])

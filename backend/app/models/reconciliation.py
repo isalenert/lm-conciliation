@@ -1,37 +1,42 @@
 """
-Model de Conciliação
+Models de reconciliação
 """
-
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Enum as SQLEnum
-from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, JSON
+from sqlalchemy.sql import func
 from app.core.database import Base
-import enum
-
-class ReconciliationStatus(enum.Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
 
 class Reconciliation(Base):
     __tablename__ = "reconciliations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    bank_file_name = Column(String, nullable=False)
-    internal_file_name = Column(String, nullable=False)
-    total_bank_transactions = Column(Integer, default=0)
-    total_internal_transactions = Column(Integer, default=0)
-    matched_count = Column(Integer, default=0)
-    bank_only_count = Column(Integer, default=0)
-    internal_only_count = Column(Integer, default=0)
-    manual_matches_count = Column(Integer, default=0)
-    match_rate = Column(Float, default=0.0)
-    status = Column(SQLEnum(ReconciliationStatus), default=ReconciliationStatus.PENDING)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    user = relationship("User")
-    transactions = relationship("Transaction", back_populates="reconciliation", cascade="all, delete-orphan")
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    bank_file_name = Column(String)
+    internal_file_name = Column(String)
+    total_bank_transactions = Column(Integer)
+    total_internal_transactions = Column(Integer)
+    matched_count = Column(Integer)
+    bank_only_count = Column(Integer)
+    internal_only_count = Column(Integer)
+    match_rate = Column(Float)
+
+
+class ReconciliationMatch(Base):
+    __tablename__ = "reconciliation_matches"
     
-    def __repr__(self):
-        return f"<Reconciliation(id={self.id}, match_rate={self.match_rate}%)>"
+    id = Column(Integer, primary_key=True, index=True)
+    reconciliation_id = Column(Integer, ForeignKey("reconciliations.id", ondelete="CASCADE"), nullable=False)
+    bank_transaction_data = Column(JSON)
+    internal_transaction_data = Column(JSON)
+    confidence = Column(Float)
+    is_manual = Column(Boolean, default=False)
+
+
+class ManualMatch(Base):
+    __tablename__ = "manual_matches"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    reconciliation_id = Column(Integer, ForeignKey("reconciliations.id", ondelete="CASCADE"), nullable=False)
+    bank_transaction_id = Column(Integer)
+    internal_transaction_id = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

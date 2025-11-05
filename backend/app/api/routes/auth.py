@@ -1,10 +1,11 @@
 """
-Rotas de autenticação: cadastro, login, perfil
+Rotas de autenticação
 """
-
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.deps import get_current_user
@@ -13,18 +14,12 @@ from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
 
 router = APIRouter()
 
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(user_data: UserCreate, db: Session = Depends(get_db)):
-    """
-    Cadastro de novo usuário
-    
-    - Valida se email já existe
-    - Faz hash da senha
-    - Cria usuário no banco
-    - Retorna dados do usuário (sem senha)
-    """
-    # Verificar se email já existe
+    """Cadastro de novo usuário"""
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -32,14 +27,12 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
             detail="Email já cadastrado"
         )
     
-    # Criar novo usuário
     hashed_password = hash_password(user_data.password)
     new_user = User(
         email=user_data.email,
         name=user_data.name,
-        password_hash=hashed_password
+        hashed_password=hashed_password
     )
-    
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -49,13 +42,7 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    """
-    Login de usuário (aceita JSON com email)
-    
-    - Valida email e senha
-    - Retorna JWT token
-    """
-    # Buscar usuário
+    """Login de usuário (JSON)"""
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user:
         raise HTTPException(
@@ -64,16 +51,17 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Verificar senha
-    if not verify_password(credentials.password, user.password_hash):
+    if not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Gerar token
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(
+        data={"sub": user.email, "user_id": user.id},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -83,12 +71,7 @@ def login_form(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    """
-    Login via OAuth2 form (para Swagger Authorize)
-    
-    **IMPORTANTE:** Use email no campo username
-    """
-    # Buscar usuário (username = email)
+    """Login via OAuth2 form (Swagger)"""
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
         raise HTTPException(
@@ -97,25 +80,24 @@ def login_form(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Verificar senha
-    if not verify_password(form_data.password, user.password_hash):
+    if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Gerar token
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(
+        data={"sub": user.email, "user_id": user.id},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     
     return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.get("/me", response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
-    """
-    Retorna dados do usuário autenticado
-    
-    Rota protegida: requer token válido
-    """
+def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """Retorna informações do usuário logado"""
     return current_user
