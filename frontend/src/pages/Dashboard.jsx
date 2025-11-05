@@ -103,8 +103,7 @@ export default function Dashboard() {
 
           <button
             onClick={() => navigate('/settings')}
-            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-left opacity-75 cursor-not-allowed"
-            disabled
+            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-left"
           >
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
               <Settings className="w-6 h-6 text-purple-600" />
@@ -113,7 +112,7 @@ export default function Dashboard() {
               Configurações
             </h3>
             <p className="text-sm text-gray-600">
-              Em breve: Configure tolerâncias
+              Configure tolerâncias e preferências
             </p>
           </button>
 
@@ -201,6 +200,10 @@ export default function Dashboard() {
             <li className="flex items-start">
               <span className="font-semibold mr-2">4.</span>
               <span>Execute a conciliação e veja os resultados!</span>
+            </li>
+            <li className="flex items-start">
+              <span className="font-semibold mr-2">5.</span>
+              <span>Se houver pendências, use a conciliação manual</span>
             </li>
           </ol>
         </div>

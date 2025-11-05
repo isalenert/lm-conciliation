@@ -1,11 +1,11 @@
 /**
- * Página de Mapeamento de Colunas
+ * Página de Mapeamento de Colunas - MELHORADA
  */
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { uploadCSV, reconcileFiles } from '../services/api';
-import { ArrowRight, Settings, Loader } from 'lucide-react';
+import { uploadCSV, reconcileFiles, getSettings } from '../services/api';
+import { ArrowRight, Settings, Loader, Table } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
 function MappingPage() {
@@ -20,9 +20,9 @@ function MappingPage() {
   const [error, setError] = useState('');
 
   const [mapping, setMapping] = useState({
-    date_col: 'Data',
-    value_col: 'Valor',
-    desc_col: 'Descricao',
+    date_col: '',
+    value_col: '',
+    desc_col: '',
     id_col: '',
   });
 
@@ -38,7 +38,21 @@ function MappingPage() {
       return;
     }
     loadFiles();
+    loadUserSettings();
   }, [files, navigate]);
+
+  const loadUserSettings = async () => {
+    try {
+      const settings = await getSettings();
+      setConfig({
+        date_tolerance: settings.date_tolerance_days,
+        value_tolerance: settings.value_tolerance,
+        similarity_threshold: settings.similarity_threshold,
+      });
+    } catch (err) {
+      console.log('Usando configurações padrão');
+    }
+  };
 
   const loadFiles = async () => {
     try {
@@ -53,6 +67,7 @@ function MappingPage() {
       setBankData(bankResponse);
       setInternalData(internalResponse);
 
+      // Auto-detectar colunas
       const bankCols = bankResponse.columns;
       const internalCols = internalResponse.columns;
 
@@ -116,11 +131,96 @@ function MappingPage() {
           </div>
         )}
 
+        {/* PREVIEW DOS ARQUIVOS */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+            <Table className="w-6 h-6 mr-2" />
+            Preview dos Arquivos
+          </h2>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Preview Banco */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="font-semibold text-gray-900 mb-3">
+                📊 {files.bank.name}
+              </h3>
+              <div className="text-sm text-gray-600 mb-3">
+                {bankData.rows} linhas • {bankData.columns.length} colunas
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {bankData.columns.map((col) => (
+                        <th
+                          key={col}
+                          className="px-3 py-2 text-left font-semibold text-gray-700 border-b"
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bankData.preview.slice(0, 3).map((row, idx) => (
+                      <tr key={idx} className="border-b">
+                        {bankData.columns.map((col) => (
+                          <td key={col} className="px-3 py-2 text-gray-600">
+                            {row[col]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Preview Sistema */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="font-semibold text-gray-900 mb-3">
+                💻 {files.internal.name}
+              </h3>
+              <div className="text-sm text-gray-600 mb-3">
+                {internalData.rows} linhas • {internalData.columns.length} colunas
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {internalData.columns.map((col) => (
+                        <th
+                          key={col}
+                          className="px-3 py-2 text-left font-semibold text-gray-700 border-b"
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {internalData.preview.slice(0, 3).map((row, idx) => (
+                      <tr key={idx} className="border-b">
+                        {internalData.columns.map((col) => (
+                          <td key={col} className="px-3 py-2 text-gray-600">
+                            {row[col]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* MAPEAMENTO DE COLUNAS */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center">
               <Settings className="w-5 h-5 mr-2" />
-              Mapeamento de Colunas
+              Mapeamento - Arquivo do Banco
             </h2>
 
             <div className="space-y-4">
@@ -175,54 +275,112 @@ function MappingPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">
-              Configurações Avançadas
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <Settings className="w-5 h-5 mr-2" />
+              Mapeamento - Arquivo do Sistema
             </h2>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tolerância de Data (dias): {config.date_tolerance}
+                  Coluna de Data *
                 </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="7"
-                  value={config.date_tolerance}
-                  onChange={(e) => setConfig({ ...config, date_tolerance: parseInt(e.target.value) })}
-                  className="w-full"
-                />
+                <select
+                  value={mapping.date_col}
+                  onChange={(e) => setMapping({ ...mapping, date_col: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="">Selecione...</option>
+                  {internalData?.columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tolerância de Valor: R$ {config.value_tolerance.toFixed(2)}
+                  Coluna de Valor *
                 </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={config.value_tolerance}
-                  onChange={(e) => setConfig({ ...config, value_tolerance: parseFloat(e.target.value) })}
-                  className="w-full"
-                />
+                <select
+                  value={mapping.value_col}
+                  onChange={(e) => setMapping({ ...mapping, value_col: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="">Selecione...</option>
+                  {internalData?.columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Similaridade Mínima: {(config.similarity_threshold * 100).toFixed(0)}%
+                  Coluna de Descrição *
                 </label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="1"
-                  step="0.05"
-                  value={config.similarity_threshold}
-                  onChange={(e) => setConfig({ ...config, similarity_threshold: parseFloat(e.target.value) })}
-                  className="w-full"
-                />
+                <select
+                  value={mapping.desc_col}
+                  onChange={(e) => setMapping({ ...mapping, desc_col: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="">Selecione...</option>
+                  {internalData?.columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CONFIGURAÇÕES AVANÇADAS */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">
+            Configurações Avançadas
+          </h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tolerância de Data (dias): {config.date_tolerance}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="7"
+                value={config.date_tolerance}
+                onChange={(e) => setConfig({ ...config, date_tolerance: parseInt(e.target.value) })}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tolerância de Valor: R$ {config.value_tolerance.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={config.value_tolerance}
+                onChange={(e) => setConfig({ ...config, value_tolerance: parseFloat(e.target.value) })}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Similaridade Mínima: {(config.similarity_threshold * 100).toFixed(0)}%
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="1"
+                step="0.05"
+                value={config.similarity_threshold}
+                onChange={(e) => setConfig({ ...config, similarity_threshold: parseFloat(e.target.value) })}
+                className="w-full"
+              />
             </div>
           </div>
         </div>

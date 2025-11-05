@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Importar rotas
-from app.api.routes import upload, reconcile, auth, history
+from app.api.routes import upload, reconcile, auth, history, settings, manual_match, password_reset
 
 # Criar aplicação
 app = FastAPI(
@@ -19,25 +19,33 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configurar CORS
+# Configurar CORS - MAIS PERMISSIVO
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
-        "http://localhost:80",
-        "http://localhost",
+        "http://localhost:5174",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:8080",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Incluir rotas
 app.include_router(auth.router, prefix="/api/auth", tags=["Autenticação"])
+app.include_router(password_reset.router, prefix="/api/auth", tags=["Autenticação"])
 app.include_router(upload.router, prefix="/api", tags=["Upload"])
 app.include_router(reconcile.router, prefix="/api", tags=["Conciliação"])
 app.include_router(history.router, prefix="/api", tags=["Histórico"])
+app.include_router(settings.router, prefix="/api", tags=["Configurações"])
+app.include_router(manual_match.router, prefix="/api", tags=["Conciliação Manual"])
 
 
 # Endpoint raiz
@@ -75,7 +83,6 @@ async def global_exception_handler(request, exc):
     )
 
 
-# Executar servidor (para desenvolvimento)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

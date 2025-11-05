@@ -89,4 +89,40 @@ export const getStatistics = async () => {
   return response.data;
 };
 
+// ========== CONFIGURAÇÕES ==========
+export const getSettings = async () => {
+  const response = await api.get('/api/settings');
+  return response.data;
+};
+
+export const updateSettings = async (settings) => {
+  const response = await api.put('/api/settings', settings);
+  return response.data;
+};
+
+// ========== CONCILIAÇÃO MANUAL ==========
+export const getPendingTransactions = async (reconciliationId) => {
+  const response = await api.get(`/api/reconciliation/${reconciliationId}/pending`);
+  return response.data;
+};
+
+export const createManualMatch = async (matchData) => {
+  const response = await api.post('/api/manual-match', matchData);
+  return response.data;
+};
+
+// ========== RECUPERAÇÃO DE SENHA ==========
+export const requestPasswordReset = async (email) => {
+  const response = await api.post('/api/auth/forgot-password', { email });
+  return response.data;
+};
+
+export const resetPassword = async (token, newPassword) => {
+  const response = await api.post('/api/auth/reset-password', {
+    token,
+    new_password: newPassword,
+  });
+  return response.data;
+};
+
 export default api;
