@@ -1,8 +1,6 @@
 databases:
   - name: lm-conciliation-db
     databaseName: lm_conciliation
-    user: postgres
-    region: oregon
     plan: free
 
 services:
@@ -35,7 +33,6 @@ services:
   - type: web
     name: lm-conciliation-frontend
     runtime: static
-    region: oregon
     plan: free
     branch: main
     rootDir: frontend
