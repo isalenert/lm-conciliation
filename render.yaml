@@ -1,7 +1,7 @@
 databases:
   - name: lm-conciliation-db
     databaseName: lm_conciliation
-    plan: free
+    plan: starter
 
 services:
   # Backend API
@@ -9,7 +9,7 @@ services:
     name: lm-conciliation-backend
     runtime: python
     region: oregon
-    plan: free
+    plan: starter
     branch: main
     rootDir: backend
     buildCommand: "./build.sh"
@@ -33,14 +33,7 @@ services:
   - type: web
     name: lm-conciliation-frontend
     runtime: static
-    plan: free
     branch: main
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: lm-conciliation-backend
-          envVarKey: RENDER_EXTERNAL_URL
