@@ -37,7 +37,7 @@ jobs:
         path: backend/coverage.xml
 
   sonarcloud:
-    name: 🔍 SonarCloud
+    name: 🔍 SonarCloud Analysis
     runs-on: ubuntu-latest
     needs: test-backend
     
@@ -52,11 +52,11 @@ jobs:
         name: coverage
         path: backend/
     
-    - name: SonarQube Scan
-      uses: sonarsource/sonarqube-scan-action@master
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@v2.3.0
       env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: https://sonarcloud.io
 
   build-frontend:
     name: 🎨 Build Frontend
