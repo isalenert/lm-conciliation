@@ -37,10 +37,11 @@ api.interceptors.response.use(
   }
 );
 
-// ========== UPLOAD ==========
-export const uploadCSV = async (file) => {
+// ========== UPLOAD DE ARQUIVOS ==========
+export const uploadFiles = async (bankFile, internalFile) => {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('bank_file', bankFile);
+  formData.append('internal_file', internalFile);
 
   const response = await api.post('/api/upload', formData, {
     headers: {
@@ -49,6 +50,43 @@ export const uploadCSV = async (file) => {
   });
 
   return response.data;
+};
+
+// Processar CSV localmente para preview
+export const processCSVLocal = async (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        reject(new Error('Arquivo vazio'));
+        return;
+      }
+      
+      // Parse CSV
+      const headers = lines[0].split(',').map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        const values = line.split(',');
+        const row = {};
+        headers.forEach((header, i) => {
+          row[header] = values[i]?.trim() || '';
+        });
+        return row;
+      });
+      
+      resolve({
+        columns: headers,
+        rows: rows.length,
+        preview: rows.slice(0, 5)
+      });
+    };
+    
+    reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+    reader.readAsText(file);
+  });
 };
 
 // ========== CONCILIAÇÃO ==========
@@ -67,6 +105,17 @@ export const reconcileFiles = async (bankFile, internalFile, config) => {
   const response = await api.post('/api/reconcile', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  return response.data;
+};
+
+// Reconciliar usando nomes de arquivos já enviados
+export const reconcileTransactions = async (data) => {
+  const response = await api.post('/api/reconcile', data, {
+    headers: {
+      'Content-Type': 'application/json',
     },
   });
 
