@@ -52,11 +52,11 @@ jobs:
         name: coverage
         path: backend/
     
-    - name: SonarCloud Scan
-      uses: SonarSource/sonarcloud-github-action@master
+    - name: SonarQube Scan
+      uses: sonarsource/sonarqube-scan-action@master
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: https://sonarcloud.io
 
   build-frontend:
     name: 🎨 Build Frontend
