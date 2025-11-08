@@ -1,6 +1,5 @@
 # 🏦 LM Conciliation - Sistema de Conciliação Bancária
 
-[![CI - Testes](https://github.com/isalenert/lm-conciliation/actions/workflows/ci.yml/badge.svg)](https://github.com/isalenert/lm-conciliation/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen.svg)](https://github.com/isalenert/lm-conciliation)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -40,7 +39,6 @@ Sistema que realiza a conciliação automática entre extratos bancários (PDF/C
 ### DevOps
 - **Docker** - Containerização
 - **GitHub Actions** - CI/CD
-- **Terraform** - Infraestrutura como código
 - **pytest** - Testes unitários
 
 ## 📦 Como Rodar Localmente
