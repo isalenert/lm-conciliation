@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Importar rotas
+from app.core.config import settings as app_settings
 from app.api.routes import upload, process, reconcile, auth, history, settings, manual_match, password_reset
 
 # Criar aplicação
@@ -19,10 +19,10 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS - PERMITIR TODAS AS ORIGENS (DESENVOLVIMENTO)
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especificar domínios
+    allow_origins=["*"],  # Permitir todas as origens (TEMPORÁRIO)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +34,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Autenticação"])
 app.include_router(password_reset.router, prefix="/api/auth", tags=["Autenticação"])
 app.include_router(upload.router, prefix="/api", tags=["Upload"])
 app.include_router(reconcile.router, prefix="/api", tags=["Conciliação"])
+app.include_router(process.router, prefix="/api", tags=["Processamento"])
 app.include_router(history.router, prefix="/api", tags=["Histórico"])
 app.include_router(settings.router, prefix="/api", tags=["Configurações"])
 app.include_router(manual_match.router, prefix="/api", tags=["Conciliação Manual"])
@@ -82,4 +83,3 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
-app.include_router(process.router, prefix="/api", tags=["Processamento"])

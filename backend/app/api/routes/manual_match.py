@@ -23,8 +23,7 @@ class PendingTransactionsResponse(BaseModel):
     bank_pending: list
     internal_pending: list
 
-
-@router.get("/reconciliation/{reconciliation_id}/pending", response_model=PendingTransactionsResponse)
+@router.get("/reconciliation/{reconciliation_id}/pending")
 def get_pending_transactions(
     reconciliation_id: int,
     current_user: User = Depends(get_current_user),
@@ -44,7 +43,7 @@ def get_pending_transactions(
             detail="Conciliação não encontrada"
         )
     
-    # Buscar matches existentes
+    # Buscar todos os matches desta conciliação
     existing_matches = db.query(ReconciliationMatch).filter(
         ReconciliationMatch.reconciliation_id == reconciliation_id
     ).all()
@@ -59,12 +58,38 @@ def get_pending_transactions(
         if match.internal_transaction_data and 'id' in match.internal_transaction_data:
             matched_internal_ids.add(match.internal_transaction_data['id'])
     
-    # Retornar pendentes (simplificado - você pode melhorar isso)
+    # Reprocessar os arquivos para pegar todas as transações
+    import os
+    from app.core.csv_processor import CSVProcessor
+    
+    UPLOAD_DIR = "/tmp/lm-conciliation-uploads"
+    bank_path = os.path.join(UPLOAD_DIR, reconciliation.bank_file_name)
+    internal_path = os.path.join(UPLOAD_DIR, reconciliation.internal_file_name)
+    
+    bank_pending = []
+    internal_pending = []
+    
+    if os.path.exists(bank_path) and os.path.exists(internal_path):
+        try:
+            # Ler arquivos
+            bank_df = CSVProcessor.read_csv(bank_path)
+            internal_df = CSVProcessor.read_csv(internal_path)
+            
+            # Processar (assumindo que as colunas são Data, Valor, Descricao)
+            bank_data = CSVProcessor.process_dataframe(bank_df, 'Data', 'Valor', 'Descricao')
+            internal_data = CSVProcessor.process_dataframe(internal_df, 'Data', 'Valor', 'Descricao')
+            
+            # Filtrar apenas os não conciliados
+            bank_pending = [t for t in bank_data if t['id'] not in matched_bank_ids]
+            internal_pending = [t for t in internal_data if t['id'] not in matched_internal_ids]
+            
+        except Exception as e:
+            print(f"Erro ao processar arquivos: {e}")
+    
     return {
-        "bank_pending": [],
-        "internal_pending": []
+        "bank_pending": bank_pending,
+        "internal_pending": internal_pending
     }
-
 
 @router.post("/manual-match")
 def create_manual_match(

@@ -66,14 +66,14 @@ def get_reconciliation_details(
 ):
     """
     Retorna detalhes de uma conciliação específica
-    
-    Inclui todas as transações
     """
-    reconciliation = ReconciliationService.get_reconciliation_by_id(
-        db=db,
-        reconciliation_id=reconciliation_id,
-        user_id=current_user.id
-    )
+    from app.models.reconciliation import Reconciliation, ReconciliationMatch
+    
+    # Buscar conciliação
+    reconciliation = db.query(Reconciliation).filter(
+        Reconciliation.id == reconciliation_id,
+        Reconciliation.user_id == current_user.id
+    ).first()
     
     if not reconciliation:
         raise HTTPException(
@@ -81,83 +81,66 @@ def get_reconciliation_details(
             detail="Conciliação não encontrada"
         )
     
-    # Buscar transações
-    matched_transactions = [
-        t for t in reconciliation.transactions 
-        if t.status.value == 'matched'
-    ]
+    # Buscar todos os matches desta conciliação
+    matches = db.query(ReconciliationMatch).filter(
+        ReconciliationMatch.reconciliation_id == reconciliation_id
+    ).all()
     
-    bank_only = [
-        t for t in reconciliation.transactions 
-        if t.status.value == 'pending' and t.source.value == 'bank'
-    ]
+    # Formatar matches
+    matched = []
+    for match in matches:
+        matched.append({
+            'bank_transaction': match.bank_transaction_data,
+            'internal_transaction': match.internal_transaction_data,
+            'confidence': match.confidence,
+            'is_manual': match.is_manual
+        })
     
-    internal_only = [
-        t for t in reconciliation.transactions 
-        if t.status.value == 'pending' and t.source.value == 'internal'
-    ]
+    # Reprocessar arquivos para pegar pendências
+    import os
+    from app.core.csv_processor import CSVProcessor
     
-    # Construir pares de matches
-    matched_pairs = []
-    processed_ids = set()
+    UPLOAD_DIR = "/tmp/lm-conciliation-uploads"
+    bank_path = os.path.join(UPLOAD_DIR, reconciliation.bank_file_name)
+    internal_path = os.path.join(UPLOAD_DIR, reconciliation.internal_file_name)
     
-    for transaction in matched_transactions:
-        if transaction.id in processed_ids:
-            continue
+    bank_only = []
+    internal_only = []
+    
+    if os.path.exists(bank_path) and os.path.exists(internal_path):
+        try:
+            # IDs já conciliados
+            matched_bank_ids = set()
+            matched_internal_ids = set()
             
-        if transaction.matched_with_id:
-            matched_with = next(
-                (t for t in matched_transactions if t.id == transaction.matched_with_id),
-                None
-            )
+            for match in matches:
+                if match.bank_transaction_data and 'id' in match.bank_transaction_data:
+                    matched_bank_ids.add(match.bank_transaction_data['id'])
+                if match.internal_transaction_data and 'id' in match.internal_transaction_data:
+                    matched_internal_ids.add(match.internal_transaction_data['id'])
             
-            if matched_with:
-                if transaction.source.value == 'bank':
-                    bank_trans = transaction
-                    internal_trans = matched_with
-                else:
-                    bank_trans = matched_with
-                    internal_trans = transaction
-                
-                matched_pairs.append({
-                    'bank_transaction': {
-                        'Data': bank_trans.date.isoformat(),
-                        'Valor': bank_trans.value,
-                        'Descricao': bank_trans.description
-                    },
-                    'internal_transaction': {
-                        'Data': internal_trans.date.isoformat(),
-                        'Valor': internal_trans.value,
-                        'Descricao': internal_trans.description
-                    },
-                    'confidence': bank_trans.confidence
-                })
-                
-                processed_ids.add(transaction.id)
-                processed_ids.add(matched_with.id)
+            # Ler e processar arquivos
+            bank_df = CSVProcessor.read_csv(bank_path)
+            internal_df = CSVProcessor.read_csv(internal_path)
+            
+            bank_data = CSVProcessor.process_dataframe(bank_df, 'Data', 'Valor', 'Descricao')
+            internal_data = CSVProcessor.process_dataframe(internal_df, 'Data', 'Valor', 'Descricao')
+            
+            # Filtrar pendentes
+            bank_only = [t for t in bank_data if t['id'] not in matched_bank_ids]
+            internal_only = [t for t in internal_data if t['id'] not in matched_internal_ids]
+            
+        except Exception as e:
+            print(f"Erro ao processar arquivos: {e}")
     
     return {
         'id': reconciliation.id,
         'bank_file_name': reconciliation.bank_file_name,
         'internal_file_name': reconciliation.internal_file_name,
         'created_at': reconciliation.created_at,
-        'matched': matched_pairs,
-        'bank_only': [
-            {
-                'Data': t.date.isoformat(),
-                'Valor': t.value,
-                'Descricao': t.description
-            }
-            for t in bank_only
-        ],
-        'internal_only': [
-            {
-                'Data': t.date.isoformat(),
-                'Valor': t.value,
-                'Descricao': t.description
-            }
-            for t in internal_only
-        ],
+        'matched': matched,
+        'bank_only': bank_only,
+        'internal_only': internal_only,
         'summary': {
             'total_bank_transactions': reconciliation.total_bank_transactions,
             'total_internal_transactions': reconciliation.total_internal_transactions,

@@ -111,9 +111,13 @@ async def reconcile_transactions(
         
         db.commit()
         
+        # Retornar no formato esperado pelo frontend
         return {
             "reconciliation_id": reconciliation.id,
-            "results": results
+            "summary": results['summary'],
+            "matched": results['matched'],
+            "bank_only": results['bank_only'],
+            "internal_only": results['internal_only']
         }
         
     except Exception as e:

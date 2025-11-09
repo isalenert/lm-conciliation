@@ -87,3 +87,66 @@ class ReconciliationService:
         db.commit()
         
         return reconciliation
+    
+    @staticmethod
+    def get_user_statistics(user_id: int, db) -> Dict[str, Any]:
+        """
+        Calcula estatísticas agregadas do usuário
+        
+        Args:
+            user_id: ID do usuário
+            db: Sessão do banco de dados
+            
+        Returns:
+            Dict com estatísticas do usuário:
+            - total_reconciliations: Total de conciliações realizadas
+            - total_transactions: Total de transações processadas
+            - total_matched: Total de transações conciliadas
+            - total_pending: Total de transações pendentes
+            - average_match_rate: Taxa média de acerto (%)
+            - last_reconciliation_date: Data da última conciliação
+        """
+        from sqlalchemy import func
+        
+        # Buscar todas as conciliações do usuário
+        reconciliations = db.query(Reconciliation).filter(
+            Reconciliation.user_id == user_id
+        ).all()
+        
+        if not reconciliations:
+            return {
+                "total_reconciliations": 0,
+                "total_transactions": 0,
+                "total_matched": 0,
+                "total_pending": 0,
+                "average_match_rate": 0.0,
+                "last_reconciliation_date": None
+            }
+        
+        # Calcular estatísticas agregadas
+        total_reconciliations = len(reconciliations)
+        total_matches = sum(r.matched_count or 0 for r in reconciliations)
+        total_bank = sum(r.total_bank_transactions or 0 for r in reconciliations)
+        total_internal = sum(r.total_internal_transactions or 0 for r in reconciliations)
+        
+        # Calcular totais
+        total_transactions = total_bank + total_internal
+        total_pending = total_transactions - (total_matches * 2)
+        
+        # Calcular taxa média ponderada
+        if total_transactions > 0:
+            average_match_rate = (total_matches * 2 / total_transactions) * 100
+        else:
+            average_match_rate = 0.0
+        
+        # Última conciliação
+        last_reconciliation = max(reconciliations, key=lambda r: r.created_at)
+        
+        return {
+            "total_reconciliations": total_reconciliations,
+            "total_transactions": total_transactions,
+            "total_matched": total_matches,
+            "total_pending": total_pending,
+            "average_match_rate": round(average_match_rate, 2),
+            "last_reconciliation_date": last_reconciliation.created_at.isoformat()
+        }

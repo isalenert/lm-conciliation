@@ -30,6 +30,10 @@ def hash_password(password: str) -> str:
     Returns:
         Hash da senha
     """
+    # Bcrypt tem limite de 72 bytes, truncar se necessário
+    if len(password.encode('utf-8')) > 72:
+        password = password[:72]
+    
     return pwd_context.hash(password)
 
 

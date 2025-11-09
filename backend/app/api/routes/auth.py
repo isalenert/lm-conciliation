@@ -20,6 +20,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     """Cadastro de novo usuário"""
+    
+    # DEBUG: Ver o que está chegando
+    print(f"🔍 DEBUG - Nome: {user_data.name}")
+    print(f"🔍 DEBUG - Email: {user_data.email}")
+    print(f"🔍 DEBUG - Senha recebida (len): {len(user_data.password)}")
+    print(f"🔍 DEBUG - Senha (primeiros 20 chars): {user_data.password[:20]}")
+    print(f"🔍 DEBUG - Senha (bytes): {len(user_data.password.encode('utf-8'))}")
+    
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -48,56 +56,54 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer"}
         )
     
     if not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer"}
         )
     
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email, "user_id": user.id},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.post("/login/form", response_model=Token)
-def login_form(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+@router.post("/token", response_model=Token)
+def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(), 
     db: Session = Depends(get_db)
 ):
-    """Login via OAuth2 form (Swagger)"""
+    """Login de usuário (OAuth2 form)"""
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer"}
         )
     
     if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer"}
         )
     
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email, "user_id": user.id},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(
-    current_user: User = Depends(get_current_user)
-):
-    """Retorna informações do usuário logado"""
+def read_users_me(current_user: User = Depends(get_current_user)):
+    """Retorna dados do usuário atual"""
     return current_user
