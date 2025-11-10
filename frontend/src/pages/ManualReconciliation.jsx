@@ -71,7 +71,7 @@ export default function ManualReconciliation() {
   };
 
   const handleFinish = () => {
-    navigate(`/history/${id}`);
+   navigate(`/history/${id}`);
   };
 
   const formatDate = (dateString) => {

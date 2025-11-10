@@ -214,25 +214,25 @@ export default function Results() {
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-2">BANCO</p>
                       <p className="text-sm">
-                        <strong>Data:</strong> {formatDate(match.bank_transaction.Data)}
+                        <strong>Data:</strong> {formatDate(match.bank_transaction.date)}
                       </p>
                       <p className="text-sm">
-                        <strong>Valor:</strong> {formatValue(match.bank_transaction.Valor)}
+                        <strong>Valor:</strong> {formatValue(match.bank_transaction.value)}
                       </p>
                       <p className="text-sm">
-                        <strong>Descrição:</strong> {match.bank_transaction.Descricao}
+                        <strong>Descrição:</strong> {match.bank_transaction.description}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-2">SISTEMA</p>
                       <p className="text-sm">
-                        <strong>Data:</strong> {formatDate(match.internal_transaction.Data)}
+                        <strong>Data:</strong> {formatDate(match.internal_transaction.date)}
                       </p>
                       <p className="text-sm">
-                        <strong>Valor:</strong> {formatValue(match.internal_transaction.Valor)}
+                        <strong>Valor:</strong> {formatValue(match.internal_transaction.value)}
                       </p>
                       <p className="text-sm">
-                        <strong>Descrição:</strong> {match.internal_transaction.Descricao}
+                        <strong>Descrição:</strong> {match.internal_transaction.description}
                       </p>
                     </div>
                   </div>

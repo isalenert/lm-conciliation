@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { uploadCSV, reconcileFiles, getSettings } from '../services/api';
+import { processCSVLocal, uploadFiles, reconcileTransactions, getSettings } from '../services/api';
 import { ArrowRight, Settings, Loader, Table } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
@@ -59,9 +59,9 @@ function MappingPage() {
       setLoading(true);
       setError('');
 
-      const [bankResponse, internalResponse] = await Promise.all([
-        uploadCSV(files.bank),
-        uploadCSV(files.internal),
+       const [bankResponse, internalResponse] = await Promise.all([
+       processCSVLocal(files.bank),
+       processCSVLocal(files.internal),
       ]);
 
       setBankData(bankResponse);
@@ -96,14 +96,38 @@ function MappingPage() {
       setProcessing(true);
       setError('');
 
-      const result = await reconcileFiles(files.bank, files.internal, {
-        ...mapping,
-        ...config,
-      });
+      // PASSO 1: Fazer upload dos arquivos primeiro
+      const uploadResponse = await uploadFiles(files.bank, files.internal);
+      
+      if (!uploadResponse || !uploadResponse.bank_file || !uploadResponse.internal_file) {
+        throw new Error('Erro no upload dos arquivos');
+      }
+
+      // PASSO 2: Enviar para conciliação com os nomes dos arquivos
+      const reconcileData = {
+        bank_file: uploadResponse.bank_file,
+        internal_file: uploadResponse.internal_file,
+        bank_mapping: {
+          date_col: mapping.date_col,
+          value_col: mapping.value_col,
+          desc_col: mapping.desc_col,
+        },
+        internal_mapping: {
+          date_col: mapping.date_col,
+          value_col: mapping.value_col,
+          desc_col: mapping.desc_col,
+        },
+        date_tolerance: config.date_tolerance,
+        value_tolerance: config.value_tolerance,
+        similarity_threshold: config.similarity_threshold,
+      };
+
+      const result = await reconcileTransactions(reconcileData);
 
       navigate('/results', { state: { results: result } });
     } catch (err) {
       setError('Erro na conciliação: ' + err.message);
+      console.error('Erro completo:', err);
     } finally {
       setProcessing(false);
     }
