@@ -1,0 +1,62 @@
+status,title,description,labels,phase
+done,Setup inicial do projeto,"Criação da estrutura básica do projeto com FastAPI (backend) e React (frontend)",backend;setup,Fundação
+done,Configurar PostgreSQL,"Migração do SQLite para PostgreSQL para banco de dados robusto",backend;database,Fundação
+done,Implementar models do banco,"Criação dos models: User Reconciliation ReconciliationMatch UserSettings",backend;database,Fundação
+done,Implementar autenticação JWT,"Sistema de login/signup com tokens JWT e proteção de rotas",backend;security,Fundação
+done,Criar endpoint de upload,"Endpoint /api/upload para receber arquivos CSV e PDF",backend;api,Desenvolvimento
+done,Implementar CSVProcessor,"Processador de CSV com detecção automática de encoding (UTF-8 Latin-1)",backend;core,Desenvolvimento
+done,Implementar PDFProcessor,"Processador de PDF com PyPDF2 para extrair transações",backend;core,Desenvolvimento
+done,Criar motor de conciliação,"ReconciliationProcessor com matching fuzzy e cálculo de confiança",backend;core,Desenvolvimento
+done,Implementar tolerâncias,"Tolerância de data (dias) valor (%) e similaridade de descrição",backend;core,Desenvolvimento
+done,Criar endpoint de conciliação,"Endpoint /api/reconcile para executar conciliação entre arquivos",backend;api,Desenvolvimento
+done,Implementar conciliação manual,"Sistema para criar matches manuais entre transações pendentes",backend;feature,Desenvolvimento
+done,Criar histórico de conciliações,"Listagem e detalhes de conciliações anteriores",backend;feature,Desenvolvimento
+done,Implementar configurações de usuário,"UserSettings com preferências de tolerância",backend;feature,Desenvolvimento
+done,BUG: Corrigir encoding CSV,"Arquivos com acentuação falhavam - adicionada detecção automática com chardet",backend;bugfix,Correções
+done,BUG: Corrigir formato de data,"Padronizar todas as datas para formato YYYY-MM-DD",backend;bugfix,Correções
+done,BUG: Corrigir normalização valores,"Remover símbolos de moeda e converter vírgulas para pontos",backend;bugfix,Correções
+done,Setup React + Vite,"Configuração inicial do frontend com React Vite e TailwindCSS",frontend;setup,Fundação
+done,Criar componente de autenticação,"Páginas de Login e Signup com validação",frontend;auth,Fundação
+done,Implementar proteção de rotas,"ProtectedRoute component para rotas autenticadas",frontend;auth,Fundação
+done,Criar página de Upload,"Interface drag-and-drop para upload de arquivos CSV/PDF",frontend;feature,Desenvolvimento
+done,Criar página de Mapeamento,"Seleção visual de colunas (Data Valor Descrição) com preview",frontend;feature,Desenvolvimento
+done,Implementar preview de arquivos,"Mostrar primeiras linhas dos arquivos após upload",frontend;feature,Desenvolvimento
+done,Criar página de Resultados,"Dashboard com gráficos (pizza barras) e lista de transações",frontend;feature,Desenvolvimento
+done,Implementar gráficos Recharts,"Visualização de matches pendências e taxa de sucesso",frontend;feature,Desenvolvimento
+done,Criar página Conciliação Manual,"Interface para selecionar e criar matches manuais",frontend;feature,Desenvolvimento
+done,Criar página de Histórico,"Listagem de conciliações anteriores com filtros",frontend;feature,Desenvolvimento
+done,Implementar navegação,"React Router com menu superior e rotas organizadas",frontend;feature,Fundação
+done,BUG: Corrigir erro 422 upload,"Frontend enviava formato errado - corrigido para FormData",frontend;bugfix,Correções
+done,BUG: Invalid Date e NaN,"Frontend acessava .Data .Valor em vez de .date .value - corrigido",frontend;bugfix,Correções
+done,BUG: Sintaxe navigate,"Template literal incorreto - corrigido de navigate\`...\` para navigate(\`...\`)",frontend;bugfix,Correções
+done,BUG: Nomes de campos Results,"ReconciliationDetails usando campos errados - padronizados",frontend;bugfix,Correções
+done,Configurar GitHub Actions,"Pipeline CI/CD com testes build e análise",devops;ci-cd,DevOps
+done,Implementar workflow completo,"Jobs: test-backend sonarcloud build-frontend",devops;ci-cd,DevOps
+done,Integrar SonarCloud,"Análise automática de qualidade de código e vulnerabilidades",devops;ci-cd,DevOps
+done,Criar 30 testes unitários,"Testes para CSVProcessor PDFProcessor ReconciliationProcessor",devops;testing,DevOps
+done,Configurar pytest e coverage,"Coverage de 21% com relatórios XML para SonarCloud",devops;testing,DevOps
+done,Deploy backend em EC2,"Ubuntu Server com Python 3.10 e PostgreSQL",devops;deploy,Deploy
+done,Deploy frontend em S3,"Static website hosting com acesso público",devops;deploy,Deploy
+done,Configurar Nginx,"Proxy reverso para o backend com timeouts aumentados",devops;infrastructure,Deploy
+done,Configurar systemd service,"Serviço lm-conciliation rodando com Gunicorn + Uvicorn",devops;infrastructure,Deploy
+done,BUG: upload-artifact deprecado,"Atualizado de v3 para v4 no GitHub Actions",devops;bugfix,Correções
+done,BUG: Falta reportlab,"Adicionado reportlab no requirements.txt para testes de PDF",devops;bugfix,Correções
+done,BUG: Testes CSVProcessor quebrados,"Método standardize_data não existia - testes corrigidos",devops;bugfix,Correções
+done,BUG: Erro indentação Python,"IndentationError nos testes - corrigido espaçamento",devops;bugfix,Correções
+done,BUG: SonarCloud Automatic Analysis,"Conflito com CI - desabilitado Automatic Analysis",devops;bugfix,Correções
+done,Provisionar EC2 AWS,"t2.micro Ubuntu 22.04 LTS em sa-east-1",infrastructure;aws,Infraestrutura
+done,Configurar Security Groups,"Portas 22 80 443 5432 abertas com regras específicas",infrastructure;aws,Infraestrutura
+done,Instalar PostgreSQL,"PostgreSQL 14 com usuário e banco configurados",infrastructure;database,Infraestrutura
+done,Criar S3 bucket,"Bucket para frontend com static website hosting",infrastructure;aws,Infraestrutura
+done,Configurar CORS,"Permitir requisições do frontend para backend",infrastructure;aws,Infraestrutura
+done,BUG: Limite upload Nginx,"Adicionado client_max_body_size 10M",infrastructure;bugfix,Correções
+done,BUG: Permissões S3,"Configurado public-read para arquivos estáticos",infrastructure;bugfix,Correções
+in-progress,Criar GitHub Wiki,"Documentação completa: requisitos arquitetura deploy",documentation,Documentação
+in-progress,Criar diagramas C4,"Diagramas de Contexto e Containers",documentation,Documentação
+in-progress,Documentar API,"Endpoints parâmetros e exemplos de resposta",documentation,Documentação
+todo,Criar Dockerfile backend,"Containerizar aplicação FastAPI",devops;docker,
+todo,Criar Dockerfile frontend,"Containerizar build do React",devops;docker,
+todo,Criar docker-compose.yml,"Orquestrar backend frontend e PostgreSQL",devops;docker,
+todo,Deploy automático AWS,"GitHub Actions → Deploy automático em EC2 e S3",devops;ci-cd,
+todo,Implementar Terraform,"Infraestrutura como código para EC2 RDS S3",devops;iac,
+todo,Aumentar cobertura testes,"De 21% para 50% adicionando testes de integração",devops;testing,

@@ -267,13 +267,13 @@ export default function Results() {
                     {results.bank_only.map((transaction, index) => (
                       <div key={index} className="border-2 border-yellow-200 rounded-lg p-4 bg-yellow-50">
                         <p className="text-sm">
-                          <strong>Data:</strong> {formatDate(transaction.Data)}
+                          <strong>Data:</strong> {formatDate(transaction.date)}
                         </p>
                         <p className="text-sm">
-                          <strong>Valor:</strong> {formatValue(transaction.Valor)}
+                          <strong>Valor:</strong> {formatValue(transaction.value)}
                         </p>
                         <p className="text-sm">
-                          <strong>Descrição:</strong> {transaction.Descricao}
+                          <strong>Descrição:</strong> {transaction.description}
                         </p>
                       </div>
                     ))}
@@ -296,13 +296,13 @@ export default function Results() {
                     {results.internal_only.map((transaction, index) => (
                       <div key={index} className="border-2 border-orange-200 rounded-lg p-4 bg-orange-50">
                         <p className="text-sm">
-                          <strong>Data:</strong> {formatDate(transaction.Data)}
+                          <strong>Data:</strong> {formatDate(transaction.date)}
                         </p>
                         <p className="text-sm">
-                          <strong>Valor:</strong> {formatValue(transaction.Valor)}
+                          <strong>Valor:</strong> {formatValue(transaction.value)}
                         </p>
                         <p className="text-sm">
-                          <strong>Descrição:</strong> {transaction.Descricao}
+                          <strong>Descrição:</strong> {transaction.description}
                         </p>
                       </div>
                     ))}
