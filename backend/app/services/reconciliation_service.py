@@ -150,3 +150,47 @@ class ReconciliationService:
             "average_match_rate": round(average_match_rate, 2),
             "last_reconciliation_date": last_reconciliation.created_at.isoformat()
         }
+    
+    @staticmethod
+    def get_user_reconciliations(db, user_id: int) -> List[Dict[str, Any]]:
+        """
+        Retorna todas as conciliações de um usuário, ordenadas por data (mais recentes primeiro).
+        
+        Requisitos atendidos:
+        - RF08: Visualizar histórico de conciliações
+        - RNF06: Código manutenível com docstrings
+        
+        Args:
+            db: Sessão do banco de dados SQLAlchemy
+            user_id: ID do usuário autenticado
+            
+        Returns:
+            List[Dict]: Lista de conciliações formatadas para JSON
+            
+        Exemplo:
+            >>> reconciliations = ReconciliationService.get_user_reconciliations(db, 1)
+            >>> print(reconciliations[0]['bank_file_name'])
+            'extrato_janeiro.pdf'
+        """
+        # Buscar conciliações do usuário (ordenadas por data decrescente)
+        reconciliations = db.query(Reconciliation).filter(
+            Reconciliation.user_id == user_id
+        ).order_by(Reconciliation.created_at.desc()).all()
+        
+        # Formatar para JSON (tratando valores None)
+        return [
+            {
+                "id": rec.id,
+                "user_id": rec.user_id,
+                "bank_file_name": rec.bank_file_name,
+                "internal_file_name": rec.internal_file_name,
+                "created_at": rec.created_at.isoformat() if rec.created_at else None,
+                "total_bank_transactions": rec.total_bank_transactions or 0,
+                "total_internal_transactions": rec.total_internal_transactions or 0,
+                "matched_count": rec.matched_count or 0,
+                "bank_only_count": rec.bank_only_count or 0,
+                "internal_only_count": rec.internal_only_count or 0,
+                "match_rate": round(rec.match_rate or 0.0, 2)
+            }
+            for rec in reconciliations
+        ]
