@@ -132,13 +132,28 @@ jobs:
     - name: Run tests with coverage
       run: |
         cd frontend
-        npm run test:coverage
+        npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text
     
     - name: Check coverage threshold
       run: |
         cd frontend
-        COVERAGE=$(grep -Po '"lines":\{"total":\K[0-9.]+' coverage/coverage-summary.json || echo "0")
+        
+        # Debug: mostrar o que foi gerado
+        echo "📁 Conteúdo do diretório coverage:"
+        ls -la coverage/ 2>/dev/null || echo "Pasta coverage não encontrada"
+        
+        # Verificar se o arquivo existe
+        if [ ! -f coverage/coverage-summary.json ]; then
+          echo "⚠️ Arquivo coverage-summary.json não encontrado"
+          echo "📁 Arquivos na raiz do frontend:"
+          ls -la
+          exit 1
+        fi
+        
+        # Extrair e verificar coverage
+        COVERAGE=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['lines']['pct'])")
         echo "Coverage: $COVERAGE%"
+        
         if (( $(echo "$COVERAGE < 25" | bc -l) )); then
           echo "❌ Coverage is below 25%"
           exit 1
@@ -147,10 +162,12 @@ jobs:
     
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4
+      if: always()  # Upload mesmo se falhar, para debug
       with:
         name: frontend-coverage
         path: frontend/coverage/
 
+        
   build-frontend:
     name: 🎨 Build Frontend
     runs-on: ubuntu-latest
