@@ -3,17 +3,21 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    port: 3000,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:8000',
-        changeOrigin: true,
-      }
-    }
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.js'], // se você tiver
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'json-summary', 'html'], // ✅ json-summary gera o arquivo que o CI espera
+      reportsDirectory: './coverage',
+      exclude: [
+        'node_modules/',
+        'src/setupTests.js',
+        '**/*.d.ts',
+        '**/*.config.{js,ts}',
+        '**/main.jsx',
+      ],
+    },
   },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-  }
 })
