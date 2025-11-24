@@ -1,7 +1,7 @@
 """
-Testes para ReconciliationService - VERSÃO COMPLETA
+Testes para ReconciliationService 
 Adaptado para a estrutura real do ReconciliationProcessor (retorna dict)
-Meta: 20+ testes, coverage > 80%
+
 """
 import pytest
 from datetime import datetime, timedelta  # ✅ FIX: Adicionar timedelta
@@ -669,4 +669,138 @@ class TestEdgeCasesAndValidations:
         result = processor.reconcile(bank_data, internal_data)
         
         # Assert
-        assert len(result['matched']) == 1  # Deve aceitar +4%
+        assert len(result['matched']) == 1  
+
+class TestReconciliationServiceMissingLines:
+    """Testes para cobrir linhas específicas não cobertas"""
+    
+    def test_get_user_statistics_calculates_pending_correctly(self, mock_db_session):
+        """
+        TESTE FINAL 1: Deve calcular transações pendentes corretamente
+        Cobre: linha com cálculo de total_pending
+        """
+        # Arrange
+        from app.services.reconciliation_service import ReconciliationService
+        
+        user_id = 100
+        
+        mock_rec = MagicMock()
+        mock_rec.matched_count = 10
+        mock_rec.total_bank_transactions = 20
+        mock_rec.total_internal_transactions = 18
+        mock_rec.bank_only_count = 10
+        mock_rec.internal_only_count = 8
+        mock_rec.created_at = datetime(2025, 1, 15)
+        
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_filter.all.return_value = [mock_rec]
+        mock_query.filter.return_value = mock_filter
+        mock_db_session.query.return_value = mock_query
+        
+        # Act
+        stats = ReconciliationService.get_user_statistics(user_id, mock_db_session)
+        
+        # Assert
+        assert 'total_pending' in stats
+        # total_pending = total_transactions - (matched * 2)
+        # = (20 + 18) - (10 * 2) = 38 - 20 = 18
+        assert stats['total_pending'] == 18
+    
+    def test_get_user_statistics_finds_last_reconciliation(self, mock_db_session):
+        """
+        TESTE FINAL 2: Deve encontrar a última conciliação
+        Cobre: linha 140 (last_reconciliation = max(...))
+        """
+        # Arrange
+        from app.services.reconciliation_service import ReconciliationService
+        
+        user_id = 100
+        
+        # Criar 3 conciliações com datas diferentes
+        mock_rec1 = MagicMock()
+        mock_rec1.matched_count = 5
+        mock_rec1.total_bank_transactions = 10
+        mock_rec1.total_internal_transactions = 10
+        mock_rec1.bank_only_count = 5
+        mock_rec1.internal_only_count = 5
+        mock_rec1.created_at = datetime(2025, 1, 1)  # Mais antiga
+        
+        mock_rec2 = MagicMock()
+        mock_rec2.matched_count = 8
+        mock_rec2.total_bank_transactions = 15
+        mock_rec2.total_internal_transactions = 15
+        mock_rec2.bank_only_count = 7
+        mock_rec2.internal_only_count = 7
+        mock_rec2.created_at = datetime(2025, 1, 20)  # Mais recente
+        
+        mock_rec3 = MagicMock()
+        mock_rec3.matched_count = 6
+        mock_rec3.total_bank_transactions = 12
+        mock_rec3.total_internal_transactions = 12
+        mock_rec3.bank_only_count = 6
+        mock_rec3.internal_only_count = 6
+        mock_rec3.created_at = datetime(2025, 1, 10)  # Intermediária
+        
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_filter.all.return_value = [mock_rec1, mock_rec2, mock_rec3]
+        mock_query.filter.return_value = mock_filter
+        mock_db_session.query.return_value = mock_query
+        
+        # Act
+        stats = ReconciliationService.get_user_statistics(user_id, mock_db_session)
+        
+        # Assert
+        assert 'last_reconciliation_date' in stats
+        # Deve retornar a data mais recente (2025-01-20)
+        assert stats['last_reconciliation_date'] == datetime(2025, 1, 20)
+    
+    def test_get_user_statistics_finds_last_reconciliation(self, mock_db_session):
+        """
+        TESTE FINAL 2: Deve encontrar a última conciliação
+        Cobre: linha 140 (last_reconciliation = max(...))
+        """
+        # Arrange
+        from app.services.reconciliation_service import ReconciliationService
+        
+        user_id = 100
+        
+        # Criar 3 conciliações com datas diferentes
+        mock_rec1 = MagicMock()
+        mock_rec1.matched_count = 5
+        mock_rec1.total_bank_transactions = 10
+        mock_rec1.total_internal_transactions = 10
+        mock_rec1.bank_only_count = 5
+        mock_rec1.internal_only_count = 5
+        mock_rec1.created_at = datetime(2025, 1, 1)  # Mais antiga
+        
+        mock_rec2 = MagicMock()
+        mock_rec2.matched_count = 8
+        mock_rec2.total_bank_transactions = 15
+        mock_rec2.total_internal_transactions = 15
+        mock_rec2.bank_only_count = 7
+        mock_rec2.internal_only_count = 7
+        mock_rec2.created_at = datetime(2025, 1, 20)  # Mais recente
+        
+        mock_rec3 = MagicMock()
+        mock_rec3.matched_count = 6
+        mock_rec3.total_bank_transactions = 12
+        mock_rec3.total_internal_transactions = 12
+        mock_rec3.bank_only_count = 6
+        mock_rec3.internal_only_count = 6
+        mock_rec3.created_at = datetime(2025, 1, 10)  # Intermediária
+        
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_filter.all.return_value = [mock_rec1, mock_rec2, mock_rec3]
+        mock_query.filter.return_value = mock_filter
+        mock_db_session.query.return_value = mock_query
+        
+        # Act
+        stats = ReconciliationService.get_user_statistics(user_id, mock_db_session)
+        
+        # Assert
+        assert 'last_reconciliation_date' in stats
+        # ✅ CORRIGIDO: Comparar com string ISO em vez de datetime object
+        assert stats['last_reconciliation_date'] == '2025-01-20T00:00:00'

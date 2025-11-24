@@ -63,8 +63,28 @@ class CSVProcessor:
         if pd.isna(value):
             return 0.0
         
-        # Remover símbolos e converter
-        value_str = str(value).replace('R$', '').replace(',', '.').strip()
+        # Converter para string
+        value_str = str(value).replace('R$', '').replace('$', '').strip()
+        
+        # Remover espaços extras
+        value_str = value_str.replace(' ', '')
+        
+        # Detectar formato brasileiro (1.500,00) vs americano (1,500.00)
+        if ',' in value_str and '.' in value_str:
+            # Se tem ambos, verificar qual vem por último
+            last_comma = value_str.rfind(',')
+            last_dot = value_str.rfind('.')
+            
+            if last_comma > last_dot:
+                # Formato brasileiro: 1.500,00
+                value_str = value_str.replace('.', '').replace(',', '.')
+            else:
+                # Formato americano: 1,500.00
+                value_str = value_str.replace(',', '')
+        elif ',' in value_str:
+            # Apenas vírgula: assumir decimal brasileiro (1500,00)
+            value_str = value_str.replace(',', '.')
+        # Se apenas ponto, deixar como está (formato americano)
         
         try:
             return float(value_str)

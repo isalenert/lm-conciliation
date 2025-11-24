@@ -1,7 +1,7 @@
 """
 Testes para o endpoint /upload
 Cobertura: Validações, Upload, Listagem e Segurança
-Meta: Elevar upload.py de 44% para 80%+
+
 """
 import pytest
 import os

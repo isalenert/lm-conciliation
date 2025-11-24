@@ -1,7 +1,7 @@
 """
 Testes para o endpoint /reconcile
 Cobertura: Validações, Autenticação, Processamento e Erros
-Meta: Elevar reconcile.py de 55% para 85%+
+
 """
 import pytest
 import os
