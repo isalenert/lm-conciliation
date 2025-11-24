@@ -340,7 +340,55 @@ class EmailService:
             print(f"❌ Erro ao enviar email de boas-vindas: {str(e)}")
             return False
 
+import os
+from typing import Optional
 
-# Criar instância global do serviço
-# Isso permite usar email_service em qualquer lugar do código
-email_service = EmailService()
+_email_service_instance: Optional[EmailService] = None
+
+def get_email_service() -> EmailService:
+    """
+    Retorna a instância singleton do EmailService.
+    
+    - Em produção: inicializa com SendGrid real
+    - Em testes: retorna mock automático
+    
+    Returns:
+        EmailService: Instância do serviço de email
+    """
+    global _email_service_instance
+    
+    if _email_service_instance is None:
+        # Detecta ambiente de teste
+        is_testing = os.getenv("TESTING") == "true" or os.getenv("CI") == "true"
+        
+        if is_testing:
+            # Mock automático para testes
+            from unittest.mock import MagicMock
+            mock = MagicMock(spec=EmailService)
+            mock.send_reset_password_email.return_value = True
+            mock.send_welcome_email.return_value = True
+            _email_service_instance = mock
+            print("⚠️ EmailService em MODO MOCK (testes)")
+        else:
+            # Inicialização real para produção
+            _email_service_instance = EmailService()
+    
+    return _email_service_instance
+
+
+class EmailServiceProxy:
+    """
+    Proxy transparente que mantém a interface original.
+    Permite lazy initialization sem quebrar código existente.
+    """
+    
+    def __getattr__(self, name):
+        """Delega todos os atributos/métodos para a instância real"""
+        return getattr(get_email_service(), name)
+    
+    def __repr__(self):
+        return f"<EmailServiceProxy wrapping {get_email_service()}>"
+
+
+#  Mantém a mesma interface que o código original
+email_service = EmailServiceProxy()
