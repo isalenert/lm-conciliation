@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://d1tbkb02om326z.cloudfront.net">🌐 Acessar Aplicação</a> •
-  <a href="https://github.com/isalenert/lm-conciliation/wiki/Como-Testar-a-Aplica%C3%A7%C3%A3o">🧪 Como Testar a Aplicação</a> •
+  <a href="https://github.com/isalenert/lm-conciliation/wiki/Teste-a-Aplica%C3%A7%C3%A3o">🧪 Como Testar a Aplicação</a> •
   <a href="https://lm-conciliation.duckdns.org/docs">📚 API Docs</a> •
   <a href="../../wiki">📖 Wiki</a>
 </p>
